@@ -1,0 +1,906 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>Project Rotation Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #12121a;
+      --border: #1e1e2e;
+      --accent: #e8ff47;
+      --accent2: #47ffe8;
+      --warn: #ff6b35;
+      --text: #e8e8f0;
+      --muted: #5a5a7a;
+      --done: #2a2a3a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Roboto', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Noise texture */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .app {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 100dvh;
+      padding: 0 0 80px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .header-day {
+      font-family: 'Roboto', sans-serif;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Main timer */
+    .timer-section {
+      padding: 28px 20px 20px;
+      text-align: center;
+    }
+
+    .project-label {
+      font-size: 11px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .project-name {
+      font-family: 'Roboto', sans-serif;
+      font-size: clamp(24px, 6vw, 36px);
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0;
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .project-name-input {
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-family: 'Roboto', sans-serif;
+      font-size: inherit;
+      font-weight: inherit;
+      letter-spacing: inherit;
+      text-align: center;
+      width: 100%;
+      outline: none;
+      border-bottom: 2px solid var(--accent);
+    }
+
+    .project-name-input::placeholder { color: var(--muted); }
+
+    /* Timer ring */
+    .timer-ring-wrap {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      margin: 24px auto 0;
+    }
+
+    .timer-ring-wrap svg {
+      transform: rotate(-90deg);
+    }
+
+    .ring-bg {
+      fill: none;
+      stroke: var(--border);
+      stroke-width: 8;
+    }
+
+    .ring-progress {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 1s linear, stroke 0.3s ease;
+    }
+
+    .ring-progress.warn { stroke: var(--warn); }
+
+    .timer-display {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+    }
+
+    .timer-digits {
+      font-family: 'Roboto', sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1;
+      color: var(--text);
+    }
+
+    .timer-digits.warn { color: var(--warn); }
+
+    .timer-sub {
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-top: 24px;
+    }
+
+    .btn {
+      font-family: 'Roboto', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      border: none;
+      cursor: pointer;
+      padding: 12px 24px;
+      border-radius: 4px;
+      transition: all 0.15s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+      min-width: 100px;
+    }
+
+    .btn-primary:active { transform: scale(0.96); }
+
+    .btn-secondary {
+      background: var(--border);
+      color: var(--muted);
+    }
+
+    .btn-secondary:hover, .btn-secondary:active {
+      background: var(--surface);
+      color: var(--text);
+    }
+
+    .btn-next {
+      background: none;
+      color: var(--accent2);
+      border: 1px solid var(--accent2);
+    }
+
+    .btn-next:active { background: var(--accent2); color: var(--bg); }
+
+    /* Progress pips */
+    .session-pips {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-top: 20px;
+    }
+
+    .pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      transition: all 0.3s ease;
+    }
+
+    .pip.active { background: var(--accent); transform: scale(1.3); }
+    .pip.done { background: var(--done); }
+    .pip.skipped { background: var(--muted); }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 24px 20px 0;
+    }
+
+    /* Project list */
+    .project-list-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 12px;
+    }
+
+    .list-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .edit-toggle {
+      font-family: 'Roboto', sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .edit-toggle.active { color: var(--accent); border-color: var(--accent); }
+
+    .project-list {
+      padding: 0 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .project-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      transition: all 0.2s ease;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .project-row.current {
+      border-color: var(--accent);
+      background: rgba(232, 255, 71, 0.06);
+    }
+
+    .project-row.done-row {
+      opacity: 0.4;
+    }
+
+    .project-row:active { transform: scale(0.98); }
+
+    .row-index {
+      font-family: 'Roboto', sans-serif;
+      font-size: 11px;
+      color: var(--muted);
+      width: 18px;
+      flex-shrink: 0;
+    }
+
+    .row-name {
+      flex: 1;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .row-name-input {
+      background: none;
+      border: none;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+      font-family: 'Roboto', sans-serif;
+      font-size: 15px;
+      font-weight: 600;
+      width: 100%;
+      outline: none;
+      padding-bottom: 2px;
+    }
+
+    .row-name-input:focus { border-color: var(--accent2); }
+
+    .row-badge {
+      font-size: 10px;
+      font-family: 'Roboto', sans-serif;
+      letter-spacing: 0.05em;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: var(--border);
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .row-badge.active { background: rgba(232,255,71,0.15); color: var(--accent); }
+    .row-badge.done-badge { background: rgba(90,90,120,0.2); color: var(--muted); }
+
+    .row-check {
+      width: 18px; height: 18px;
+      border: 1.5px solid var(--border);
+      border-radius: 50%;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px;
+      transition: all 0.2s;
+    }
+
+    .row-check.checked { background: var(--done); border-color: var(--muted); color: var(--muted); }
+
+    /* Bottom bar */
+    .bottom-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 10;
+    }
+
+    .stat-chip {
+      flex: 1;
+      text-align: center;
+      padding: 8px;
+      border-radius: 4px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+    }
+
+    .stat-val {
+      font-family: 'Roboto', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .stat-label {
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    /* Pulse animation for active */
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(232,255,71,0.3); }
+      70% { box-shadow: 0 0 0 12px rgba(232,255,71,0); }
+      100% { box-shadow: 0 0 0 0 rgba(232,255,71,0); }
+    }
+
+    .timer-ring-wrap.running {
+      animation: pulse-ring 2s ease-out infinite;
+      border-radius: 50%;
+    }
+
+    /* Toast notification */
+    .toast {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-80px);
+      background: var(--accent);
+      color: var(--bg);
+      font-family: 'Roboto', sans-serif;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 12px 24px;
+      border-radius: 4px;
+      z-index: 100;
+      white-space: nowrap;
+      transition: transform 0.3s ease;
+    }
+
+    .toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* Reset modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 50;
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px 12px 0 0;
+      padding: 28px 24px 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .modal-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .modal-sub {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 24px;
+    }
+
+    .modal-actions { display: flex; gap: 12px; }
+
+    .duration-control {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .dur-btn {
+      width: 36px; height: 36px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 20px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .dur-val {
+      font-family: 'Roboto', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      min-width: 60px;
+      text-align: center;
+      color: var(--accent);
+    }
+
+    .dur-label {
+      font-size: 12px;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <!-- Header -->
+  <div class="header">
+    <div class="header-title">Daily Rotation</div>
+    <div class="header-day" id="headerDay">—</div>
+  </div>
+
+  <!-- Timer Section -->
+  <div class="timer-section">
+    <div class="project-label">Current project</div>
+    <div class="project-name" id="currentName">—</div>
+
+    <div class="timer-ring-wrap" id="timerRingWrap">
+      <svg width="200" height="200" viewBox="0 0 200 200">
+        <circle class="ring-bg" cx="100" cy="100" r="88"/>
+        <circle class="ring-progress" id="ringProgress" cx="100" cy="100" r="88"
+          stroke-dasharray="553"
+          stroke-dashoffset="0"/>
+      </svg>
+      <div class="timer-display">
+        <div class="timer-digits" id="timerDigits">30:00</div>
+        <div class="timer-sub" id="timerSub">tap to start</div>
+      </div>
+    </div>
+
+    <div class="session-pips" id="sessionPips"></div>
+
+    <div class="controls">
+      <button class="btn btn-secondary" id="btnReset" onclick="resetCurrent()">Reset</button>
+      <button class="btn btn-primary" id="btnPlay" onclick="toggleTimer()">Start</button>
+      <button class="btn btn-next" onclick="nextProject()">Next →</button>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- Project List -->
+  <div class="project-list-header">
+    <div class="list-title">Queue</div>
+    <button class="edit-toggle" id="editToggle" onclick="toggleEdit()">Edit</button>
+  </div>
+
+  <div class="project-list" id="projectList"></div>
+</div>
+
+<!-- Bottom Stats Bar -->
+<div class="bottom-bar">
+  <div class="stat-chip">
+    <div class="stat-val" id="statDone">0/6</div>
+    <div class="stat-label">Done</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val" id="statElapsed">0m</div>
+    <div class="stat-label">Elapsed</div>
+  </div>
+  <div class="stat-chip">
+    <div class="stat-val" id="statRemain">3h</div>
+    <div class="stat-label">Remaining</div>
+  </div>
+  <div class="stat-chip" onclick="openSettings()" style="cursor:pointer">
+    <div class="stat-val" id="statDuration">30m</div>
+    <div class="stat-label">Per Slot ⚙</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- Settings Modal -->
+<div class="modal-overlay" id="settingsModal" onclick="closeSettings(event)">
+  <div class="modal">
+    <div class="modal-title">Session Settings</div>
+    <div class="modal-sub">Set time per project slot</div>
+    <div class="duration-control">
+      <button class="dur-btn" onclick="changeDuration(-5)">−</button>
+      <div>
+        <div class="dur-val" id="durDisplay">30</div>
+        <div class="dur-label">minutes</div>
+      </div>
+      <button class="dur-btn" onclick="changeDuration(5)">+</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="applySettings()">Apply & Reset Day</button>
+      <button class="btn btn-secondary" onclick="closeSettings()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const DEFAULT_PROJECTS = [
+  'Project 1', 'Project 2', 'Project 3', 'Project 4', 'Project 5', 'Project 6'
+];
+
+let state = load() || {
+  projects: DEFAULT_PROJECTS.map(n => ({ name: n, done: false })),
+  current: 0,
+  duration: 30 * 60, // seconds
+  remaining: 30 * 60,
+  running: false,
+  totalElapsed: 0,
+};
+
+let ticker = null;
+let editMode = false;
+let tempDuration = state.duration / 60;
+
+// ─── Persist ─────────────────────────────────────────────────────────────────
+function save() {
+  try { localStorage.setItem('rot_state', JSON.stringify(state)); } catch(e){}
+}
+
+function load() {
+  try {
+    const d = localStorage.getItem('rot_state');
+    return d ? JSON.parse(d) : null;
+  } catch(e) { return null; }
+}
+
+// ─── Timer logic ─────────────────────────────────────────────────────────────
+function toggleTimer() {
+  if (state.running) {
+    pauseTimer();
+  } else {
+    startTimer();
+  }
+}
+
+function startTimer() {
+  if (state.remaining <= 0) return;
+  state.running = true;
+  ticker = setInterval(tick, 1000);
+  render();
+  save();
+}
+
+function pauseTimer() {
+  state.running = false;
+  clearInterval(ticker);
+  ticker = null;
+  render();
+  save();
+}
+
+function tick() {
+  state.remaining--;
+  state.totalElapsed++;
+  if (state.remaining <= 0) {
+    state.remaining = 0;
+    pauseTimer();
+    onTimeUp();
+  }
+  render();
+  save();
+}
+
+function onTimeUp() {
+  playBeep();
+  showToast(`⏰ ${state.projects[state.current].name} — time's up!`);
+  // auto mark done
+  state.projects[state.current].done = true;
+  render();
+  save();
+}
+
+function resetCurrent() {
+  pauseTimer();
+  state.remaining = state.duration;
+  render();
+  save();
+}
+
+function nextProject() {
+  pauseTimer();
+  // mark current done
+  state.projects[state.current].done = true;
+  // find next undone
+  let next = -1;
+  for (let i = state.current + 1; i < state.projects.length; i++) {
+    if (!state.projects[i].done) { next = i; break; }
+  }
+  if (next === -1) {
+    // wrap around
+    for (let i = 0; i < state.projects.length; i++) {
+      if (!state.projects[i].done) { next = i; break; }
+    }
+  }
+  if (next === -1) {
+    showToast('🎉 All projects done!');
+    return;
+  }
+  state.current = next;
+  state.remaining = state.duration;
+  render();
+  save();
+  showToast(`▶ ${state.projects[state.current].name}`);
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  const proj = state.projects[state.current];
+  const dur = state.duration;
+  const rem = state.remaining;
+  const pct = rem / dur;
+
+  // Header date
+  document.getElementById('headerDay').textContent = new Date().toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'short'});
+
+  // Current project name
+  document.getElementById('currentName').textContent = proj ? proj.name : '—';
+
+  // Timer digits
+  const m = String(Math.floor(rem / 60)).padStart(2, '0');
+  const s = String(rem % 60).padStart(2, '0');
+  const digits = document.getElementById('timerDigits');
+  digits.textContent = `${m}:${s}`;
+  digits.classList.toggle('warn', rem <= 300 && rem > 0);
+
+  // Ring
+  const circ = 553;
+  const offset = circ * (1 - pct);
+  const ring = document.getElementById('ringProgress');
+  ring.style.strokeDashoffset = offset;
+  ring.classList.toggle('warn', rem <= 300 && rem > 0);
+
+  // Ring pulse
+  document.getElementById('timerRingWrap').classList.toggle('running', state.running);
+
+  // Sub label
+  const sub = document.getElementById('timerSub');
+  if (rem <= 0) sub.textContent = 'done';
+  else if (state.running) sub.textContent = 'running';
+  else sub.textContent = 'paused';
+
+  // Play button
+  document.getElementById('btnPlay').textContent = state.running ? 'Pause' : (rem <= 0 ? 'Done' : 'Start');
+
+  // Pips
+  const pipsEl = document.getElementById('sessionPips');
+  pipsEl.innerHTML = state.projects.map((p, i) => {
+    let cls = 'pip';
+    if (i === state.current) cls += ' active';
+    else if (p.done) cls += ' done';
+    return `<div class="${cls}" onclick="jumpTo(${i})" title="${p.name}"></div>`;
+  }).join('');
+
+  // Project list
+  renderList();
+
+  // Stats
+  const doneCount = state.projects.filter(p => p.done).length;
+  document.getElementById('statDone').textContent = `${doneCount}/${state.projects.length}`;
+
+  const elapsedMin = Math.floor(state.totalElapsed / 60);
+  document.getElementById('statElapsed').textContent = elapsedMin >= 60
+    ? `${Math.floor(elapsedMin/60)}h${elapsedMin%60}m`
+    : `${elapsedMin}m`;
+
+  const remainTotal = (state.projects.length - doneCount) * (state.duration / 60);
+  const rh = Math.floor(remainTotal / 60);
+  const rm = remainTotal % 60;
+  document.getElementById('statRemain').textContent = rh > 0 ? `${rh}h${rm}m` : `${rm}m`;
+
+  document.getElementById('statDuration').textContent = `${state.duration/60}m`;
+}
+
+function renderList() {
+  const el = document.getElementById('projectList');
+  el.innerHTML = state.projects.map((p, i) => {
+    const isCurrent = i === state.current;
+    const badge = isCurrent
+      ? `<span class="row-badge active">NOW</span>`
+      : p.done
+        ? `<span class="row-badge done-badge">✓</span>`
+        : `<span class="row-badge">${i + 1}</span>`;
+
+    const nameEl = editMode
+      ? `<input class="row-name-input" value="${p.name}" oninput="updateName(${i}, this.value)" placeholder="Project name"/>`
+      : `<span class="row-name">${p.name}</span>`;
+
+    const checkEl = !editMode
+      ? `<div class="row-check ${p.done ? 'checked' : ''}" onclick="toggleDone(${i})">${p.done ? '✓' : ''}</div>`
+      : '';
+
+    return `<div class="project-row ${isCurrent ? 'current' : ''} ${p.done ? 'done-row' : ''}" onclick="${!editMode ? `jumpTo(${i})` : ''}">
+      <div class="row-index">${String(i+1).padStart(2,'0')}</div>
+      ${nameEl}
+      ${badge}
+      ${checkEl}
+    </div>`;
+  }).join('');
+}
+
+// ─── Actions ─────────────────────────────────────────────────────────────────
+function jumpTo(i) {
+  if (editMode) return;
+  pauseTimer();
+  state.current = i;
+  state.remaining = state.duration;
+  render();
+  save();
+}
+
+function toggleDone(i) {
+  event.stopPropagation();
+  state.projects[i].done = !state.projects[i].done;
+  render();
+  save();
+}
+
+function updateName(i, val) {
+  state.projects[i].name = val;
+  save();
+}
+
+function toggleEdit() {
+  editMode = !editMode;
+  const btn = document.getElementById('editToggle');
+  btn.textContent = editMode ? 'Done' : 'Edit';
+  btn.classList.toggle('active', editMode);
+  render();
+}
+
+// Settings
+function openSettings() {
+  tempDuration = state.duration / 60;
+  document.getElementById('durDisplay').textContent = tempDuration;
+  document.getElementById('settingsModal').classList.add('open');
+}
+
+function closeSettings(e) {
+  if (e && e.target !== e.currentTarget) return;
+  document.getElementById('settingsModal').classList.remove('open');
+}
+
+function changeDuration(delta) {
+  tempDuration = Math.max(5, Math.min(120, tempDuration + delta));
+  document.getElementById('durDisplay').textContent = tempDuration;
+}
+
+function applySettings() {
+  pauseTimer();
+  state.duration = tempDuration * 60;
+  state.remaining = state.duration;
+  state.projects.forEach(p => p.done = false);
+  state.current = 0;
+  state.totalElapsed = 0;
+  document.getElementById('settingsModal').classList.remove('open');
+  render();
+  save();
+}
+
+// Toast
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// Beep
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [0, 0.3, 0.6].forEach(delay => {
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880;
+      o.type = 'sine';
+      g.gain.setValueAtTime(0.4, ctx.currentTime + delay);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.3);
+      o.start(ctx.currentTime + delay);
+      o.stop(ctx.currentTime + delay + 0.3);
+    });
+  } catch(e) {}
+}
+
+// Reset day
+function resetDay() {
+  pauseTimer();
+  state.projects.forEach(p => p.done = false);
+  state.current = 0;
+  state.remaining = state.duration;
+  state.totalElapsed = 0;
+  render();
+  save();
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+render();
+
+// Wake lock (keep screen on on iPad if supported)
+if ('wakeLock' in navigator) {
+  const requestWakeLock = async () => {
+    try { await navigator.wakeLock.request('screen'); } catch(e){}
+  };
+  requestWakeLock();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+}
+</script>
+</body>
+</html>
