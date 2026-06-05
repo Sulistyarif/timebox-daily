@@ -560,6 +560,10 @@
     <div class="stat-val" id="statDuration">30m</div>
     <div class="stat-label">Per Slot ⚙</div>
   </div>
+  <div class="stat-chip" onclick="resetRotationCount()" style="cursor:pointer">
+    <div class="stat-val" id="statRotation">0x</div>
+    <div class="stat-label">Rotasi ↺</div>
+  </div>
 </div>
 
 <!-- Toast -->
@@ -598,7 +602,10 @@ let state = load() || {
   remaining: 30 * 60,
   running: false,
   totalElapsed: 0,
+  rotationCount: 0,
 };
+// migrate saved state that predates rotationCount
+if (state.rotationCount === undefined) state.rotationCount = 0;
 
 let ticker = null;
 let editMode = false;
@@ -671,28 +678,34 @@ function resetCurrent() {
 
 function nextProject() {
   pauseTimer();
-  // mark current done
   state.projects[state.current].done = true;
-  // find next undone
+
+  // find next undone after current
   let next = -1;
   for (let i = state.current + 1; i < state.projects.length; i++) {
     if (!state.projects[i].done) { next = i; break; }
   }
+  // wrap from beginning
   if (next === -1) {
-    // wrap around
-    for (let i = 0; i < state.projects.length; i++) {
+    for (let i = 0; i < state.current; i++) {
       if (!state.projects[i].done) { next = i; break; }
     }
   }
+
+  // all done → start new rotation
   if (next === -1) {
-    showToast('🎉 All projects done!');
-    return;
+    state.rotationCount++;
+    state.projects.forEach(p => p.done = false);
+    next = (state.current + 1) % state.projects.length;
+    showToast(`🔄 Rotasi ${state.rotationCount + 1} dimulai!`);
+  } else {
+    showToast(`▶ ${state.projects[next].name}`);
   }
+
   state.current = next;
   state.remaining = state.duration;
   render();
   save();
-  showToast(`▶ ${state.projects[state.current].name}`);
 }
 
 // ─── Render ───────────────────────────────────────────────────────────────────
@@ -761,6 +774,7 @@ function render() {
   document.getElementById('statRemain').textContent = rh > 0 ? `${rh}h${rm}m` : `${rm}m`;
 
   document.getElementById('statDuration').textContent = `${state.duration/60}m`;
+  document.getElementById('statRotation').textContent = `${state.rotationCount}x`;
 }
 
 function renderList() {
@@ -886,6 +900,14 @@ function resetDay() {
   state.totalElapsed = 0;
   render();
   save();
+}
+
+function resetRotationCount() {
+  if (!confirm(`Reset rotation counter dari ${state.rotationCount}x ke 0?`)) return;
+  state.rotationCount = 0;
+  render();
+  save();
+  showToast('Rotation counter direset');
 }
 
 // ─── Init ────────────────────────────────────────────────────────────────────
