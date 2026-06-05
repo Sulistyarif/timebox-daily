@@ -716,7 +716,7 @@ function render() {
   const pct = rem / dur;
 
   // Header date
-  document.getElementById('headerDay').textContent = new Date().toLocaleDateString('id-ID', {weekday:'long', day:'numeric', month:'short'});
+  document.getElementById('headerDay').textContent = new Date().toLocaleDateString(undefined, {weekday:'long', day:'numeric', month:'short'});
 
   // Current project name
   document.getElementById('currentName').textContent = proj ? proj.name : '—';
